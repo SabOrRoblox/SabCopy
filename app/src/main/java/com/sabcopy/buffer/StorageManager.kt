@@ -16,6 +16,8 @@ object StorageManager {
     private var appContext: Context? = null
     private val lock = ReentrantReadWriteLock()
     private val cache = ConcurrentHashMap<Int, BufferItem>()
+    @Volatile
+    private var previewCache: List<ItemPreview>? = null
 
     data class ItemPreview(val id: Int, val length: Int, val preview: String, val timestamp: Long)
     data class BufferItem(val id: Int, val text: String, val timestamp: Long, val length: Int)
@@ -27,6 +29,7 @@ object StorageManager {
         masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()
+        invalidatePreviewCache()
     }
 
     private fun writeEncrypted(file: File, data: String) {
@@ -50,8 +53,10 @@ object StorageManager {
             existing + 1
         }
         val timestamp = System.currentTimeMillis()
-        cache[id] = BufferItem(id, text, timestamp, text.length)
+        val item = BufferItem(id, text, timestamp, text.length)
+        cache[id] = item
         writeEncrypted(File(itemsDir, "$id.txt"), "$id|$timestamp|${text.length}\n$text")
+        invalidatePreviewCache()
         return id
     }
 
@@ -63,9 +68,13 @@ object StorageManager {
     }
 
     fun getAllPreviews(): List<ItemPreview> {
+        previewCache?.let { return it }
         val files = itemsDir.listFiles() ?: return emptyList()
-        return files.mapNotNull { file ->
+        val result = files.mapNotNull { file ->
             val id = file.nameWithoutExtension.toIntOrNull() ?: return@mapNotNull null
+            cache[id]?.let {
+                return@mapNotNull ItemPreview(it.id, it.length, if (it.text.length > 50) it.text.take(50) + "…" else it.text, it.timestamp)
+            }
             val content = readEncrypted(file) ?: return@mapNotNull null
             val idx = content.indexOf('\n')
             if (idx <= 0) return@mapNotNull null
@@ -74,9 +83,27 @@ object StorageManager {
             val text = content.substring(idx + 1)
             ItemPreview(id, parts[2].toIntOrNull() ?: 0, if (text.length > 50) text.take(50) + "…" else text, parts[1].toLongOrNull() ?: 0L)
         }.sortedByDescending { it.id }
+        previewCache = result
+        return result
     }
 
-    fun deleteItem(id: Int): Boolean { cache.remove(id); File(itemsDir, "$id.txt").delete(); return true }
-    fun clearAll() { cache.clear(); itemsDir.listFiles()?.forEach { it.delete() } }
+    fun deleteItem(id: Int): Boolean {
+        cache.remove(id)
+        val deleted = File(itemsDir, "$id.txt").delete()
+        invalidatePreviewCache()
+        return deleted
+    }
+
+    fun clearAll() {
+        cache.clear()
+        itemsDir.listFiles()?.forEach { it.delete() }
+        invalidatePreviewCache()
+    }
+
     fun getCount(): Int = itemsDir.listFiles()?.size ?: 0
+
+    private fun invalidatePreviewCache() {
+        previewCache = null
+    }
 }
+

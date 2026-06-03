@@ -1,0 +1,3 @@
+-keep class com.sabcopy.buffer.** { *; }
+-keepclassmembers class com.sabcopy.buffer.** { *; }
+-dontwarn com.google.crypto.tink.**

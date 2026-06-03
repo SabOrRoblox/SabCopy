@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <style name="Theme.SabCopy" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:statusBarColor">#F5F5F5</item>
-        <item name="android:navigationBarColor">#F5F5F5</item>
-        <item name="android:windowActivityTransitions">true</item>
+<<resources>
+    <style name="Theme.ClipVault" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorPrimary">#1B5E20</item>
+        <item name="android:colorPrimaryDark">#1B5E20</item>
+        <item name="android:colorAccent">#2E7D32</item>
+        <item name="android:windowBackground">#F0F4F0</item>
+        <item name="android:statusBarColor">#1B5E20</item>
     </style>
 </resources>
+
